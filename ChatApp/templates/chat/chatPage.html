@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to bottom, #8458eb, #2a8cce); /* Blue gradient background */
+            color: #1822da; /* Text color */
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .chat__item__container {
+            background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent white background */
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3); /* Shadow effect */
+        }
+
+        input[type="text"], input[type="file"], button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #07065f; /* Blue button color */
+            color: #fff; /* Button text color */
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #3498db; /* Hover state color */
+        }
+
+        #messages {
+            margin-top: 20px;
+        }
+
+        #messages > div {
+            margin-bottom: 10px;
+        }
+
+        #messages img {
+            max-width: 100%;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(233, 166, 166, 0.3); /* Shadow effect for images */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Hello, Welcome to Safer Community Chat! {{ request.user }}</h1>
+        <br>
+        {% if request.user.is_authenticated %}
+        <center> Logout the chat Page <a href="{% url 'logout-user' %}">Logout</a></center>
+        {% endif %}
+        <div class="chat__item__container">
+            <br />
+            <input type="text" id="id_message_send_input" placeholder="Type your message here" />
+            <button type="submit" id="id_message_send_button">Send Message</button>
+            <br />
+            <br />
+            <input type="file" id="id_image_input" accept="image/*" />
+            <button type="submit" id="id_image_send_button">Send Image</button>
+            <br />
+            <br />
+            <div id="messages">
+                {% for message in messages %}
+                <div>
+                    <strong>{{ message.user.username }}</strong>:
+                    {% if message.text %}
+                    <span>{{ message.text }}</span>
+                    {% endif %}
+                    {% if message.image %}
+                    <img src="{{ message.image.url }}" />
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <script>
+        const chatSocket = new WebSocket("ws://" + window.location.host + "/");
+        chatSocket.onopen = function (e) {
+            console.log("The connection was set up successfully!");
+        };
+        chatSocket.onclose = function (e) {
+            console.log("Something unexpected happened!");
+        };
+        document.querySelector("#id_message_send_input").focus();
+        document.querySelector("#id_message_send_input").onkeyup = function (e) {
+            if (e.keyCode == 13) {
+                document.querySelector("#id_message_send_button").click();
+            }
+        };
+        document.querySelector("#id_message_send_button").onclick = function (e) {
+            var messageInput = document.querySelector("#id_message_send_input").value;
+            chatSocket.send(JSON.stringify({ message: messageInput, username: "{{ request.user.username }}" }));
+        };
+        document.querySelector("#id_image_send_button").onclick = function (e) {
+            var fileInput = document.querySelector("#id_image_input");
+            if (fileInput.files.length > 0) {
+                var file = fileInput.files[0];
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    var imageData = e.target.result;
+                    chatSocket.send(JSON.stringify({ image: imageData, username: "{{ request.user.username }}" }));
+                };
+                reader.readAsDataURL(file);
+            } else {
+                alert("Please select an image to send.");
+            }
+        };
+        chatSocket.onmessage = function (e) {
+            const data = JSON.parse(e.data);
+            var div = document.createElement("div");
+            if (data.message) {
+                div.innerHTML = data.username + " : " + data.message;
+            } else if (data.image) {
+                var img = document.createElement("img");
+                img.src = data.image;
+                img.style.maxWidth = "100%";
+                div.innerHTML = data.username + " : ";
+                div.appendChild(img);
+            }
+            document.querySelector("#id_message_send_input").value = "";
+            document.querySelector("#messages").appendChild(div);
+        };
+    </script>
+</body>
+</html>
